@@ -217,4 +217,3 @@ export class SatellitePassesPanel extends Panel {
     super.destroy();
   }
 }
-
