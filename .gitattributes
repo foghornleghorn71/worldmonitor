@@ -16,6 +16,13 @@
 *.jsx  text eol=lf
 *.cjs  text eol=lf
 
+# Shell scripts run inside Linux containers (docker/entrypoint.sh is the image
+# CMD) and as Git hooks. Git for Windows defaults to core.autocrlf=true, which
+# would check them out with CRLF: the container then fails to exec its
+# entrypoint and bash chokes on `$'\r'`. Force LF regardless of client config.
+*.sh     text eol=lf
+.husky/* text eol=lf
+
 # sebuf's generated TypeScript ends with one structural blank line. Keep Git's
 # whitespace gate focused on hand-authored code while preserving generator bytes.
 src/generated/**/*.ts whitespace=-blank-at-eof
