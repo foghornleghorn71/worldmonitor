@@ -42,6 +42,7 @@ import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } fro
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { fetchAircraftPositions } from '@/services/aviation';
 import type { LocalAdsbAircraft, LocalAdsbAvailability } from '@/services/local-adsb';
+import type { SatellitePosition } from '@/services/satellites';
 import { type IranEvent, getIranEventColor, getIranEventRadius } from '@/services/conflict';
 import { getMilitaryBaseColor } from '@/config/military-base-colors';
 import { getMineralColor } from '@/config/mineral-colors';
@@ -603,6 +604,7 @@ export class DeckGLMap {
   private liveTankers: Array<{ mmsi: string; lat: number; lon: number; speed: number; shipType: number; name: string }> = [];
   private liveTankersAbort: AbortController | null = null;
   private liveTankersTimer: ReturnType<typeof setInterval> | null = null;
+  private satellitePositions: SatellitePosition[] = [];
   private localAdsbAircraft: LocalAdsbAircraft[] = [];
   private localAdsbAbort: AbortController | null = null;
   private localAdsbTimer: ReturnType<typeof setInterval> | null = null;
@@ -2298,6 +2300,12 @@ export class DeckGLMap {
       layers.push(this.createRenewableInstallationsLayer());
     }
 
+    // Orbital positions (SGP4, propagated client-side every 3s by the data
+    // loader). Shares the `satellites` toggle with the imagery footprints.
+    if (mapLayers.satellites && this.satellitePositions.length > 0) {
+      layers.push(...this.createSatellitePositionLayers());
+    }
+
     if (mapLayers.satellites && filteredImageryScenes.length > 0 && !this.satelliteImageryLayerFailed) {
       layers.push(this.createImageryFootprintLayer(filteredImageryScenes));
     }
@@ -3723,6 +3731,46 @@ export class DeckGLMap {
     }
   }
 
+  private createSatellitePositionLayers(): Layer[] {
+    const colorFor = (type: string, alpha: number): [number, number, number, number] => {
+      if (type === 'sar') return [255, 159, 28, alpha];
+      if (type === 'optical') return [0, 180, 255, alpha];
+      return [255, 77, 109, alpha];
+    };
+    return [
+      new PathLayer<SatellitePosition>({
+        id: 'satellite-trails-layer',
+        data: this.satellitePositions,
+        // Trail points run newest→oldest over the last 15 min; prepend the
+        // current position so the trail meets the marker.
+        getPath: (d) => [[d.lng, d.lat], ...d.trail.map(([lng, lat]) => [lng, lat] as [number, number])],
+        getColor: (d) => colorFor(d.type, 90),
+        getWidth: 1,
+        widthMinPixels: 1,
+        wrapLongitude: true,
+        pickable: false,
+      }),
+      new ScatterplotLayer<SatellitePosition>({
+        id: 'satellite-positions-layer',
+        data: this.satellitePositions,
+        getPosition: (d) => [d.lng, d.lat],
+        getFillColor: (d) => colorFor(d.type, 230),
+        getLineColor: [255, 255, 255, 160],
+        stroked: true,
+        lineWidthMinPixels: 1,
+        getRadius: 1,
+        radiusMinPixels: 4,
+        radiusMaxPixels: 7,
+        pickable: true,
+      }),
+    ];
+  }
+
+  public setSatellites(positions: SatellitePosition[]): void {
+    this.satellitePositions = positions;
+    if (this.state.layers.satellites) this.updateLayers();
+  }
+
   private createLocalAdsbLayer(): IconLayer<LocalAdsbAircraft> {
     return new IconLayer<LocalAdsbAircraft>({
       id: 'local-adsb-layer',
@@ -5074,6 +5122,10 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)} (${text(obj.iata)})</strong><br/>${text(obj.severity)}: ${text(obj.reason)}</div>` };
       case 'notam-overlay-layer':
         return { html: `<div class="deckgl-tooltip"><strong style="color:#ff2828;">&#9888; NOTAM CLOSURE</strong><br/>${text(obj.name)} (${text(obj.iata)})<br/><span style="opacity:.7">${text((obj.reason || '').slice(0, 100))}</span></div>` };
+      case 'satellite-positions-layer': {
+        const kind = obj.type === 'sar' ? 'SAR imaging' : obj.type === 'optical' ? 'Optical imaging' : 'Military';
+        return { html: `<div class="deckgl-tooltip"><strong>&#128752; ${text(obj.name)}</strong> <span style="opacity:.7">NORAD ${text(obj.noradId)}</span><br/>${text(kind)} · ${text(obj.country)}<br/>${Math.round(obj.alt).toLocaleString()} km · ${obj.velocity.toFixed(2)} km/s · inc ${obj.inclination.toFixed(1)}°</div>` };
+      }
       case 'local-adsb-layer': {
         const alt = obj.onGround ? 'ground' : `${obj.altitudeFt?.toLocaleString() ?? '?'} ft`;
         const speed = obj.groundSpeedKt != null ? ` · ${Math.round(obj.groundSpeedKt)} kts` : '';

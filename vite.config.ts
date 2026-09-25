@@ -166,7 +166,7 @@ const PANEL_CLUSTER: Record<string, PanelChunkName> = {
   Displacement: 'panels-risk', GeoHubs: 'panels-risk',
   Giving: 'panels-risk', InternetDisruptions: 'panels-risk',
   PopulationExposure: 'panels-risk', RadiationWatch: 'panels-risk',
-  RuntimeConfig: 'panels-risk', SatelliteFires: 'panels-risk',
+  RuntimeConfig: 'panels-risk', SatelliteFires: 'panels-risk', SatellitePasses: 'panels-risk',
   SecurityAdvisories: 'panels-risk', ServiceStatus: 'panels-risk',
   SocialVelocity: 'panels-risk', SpeciesComeback: 'panels-risk',
   TechEvents: 'panels-risk',

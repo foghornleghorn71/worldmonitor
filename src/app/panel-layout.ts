@@ -2816,6 +2816,8 @@ export class PanelLayoutManager implements AppModule {
       return p;
     });
 
+    this.lazyDefaultPanel('satellite-passes', () => import('@/components/SatellitePassesPanel'), 'SatellitePassesPanel');
+
     this.lazyImportedPanel('thermal-escalation', () => import('@/components/ThermalEscalationPanel'), 'ThermalEscalationPanel', (ThermalEscalationPanel) => {
       const p = new ThermalEscalationPanel();
       p.setLocationClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
