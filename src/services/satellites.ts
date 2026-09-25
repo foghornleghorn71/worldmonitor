@@ -22,7 +22,7 @@ import { IntelligenceServiceClient } from '@/services/generated-rpc-clients';
 type SatelliteLib = typeof import('satellite.js');
 let satLib: SatelliteLib | null = null;
 let satLibPromise: Promise<SatelliteLib> | null = null;
-async function ensureSatelliteLib(): Promise<SatelliteLib> {
+export async function ensureSatelliteLib(): Promise<SatelliteLib> {
   if (satLib) return satLib;
   if (!satLibPromise) {
     satLibPromise = import('satellite.js')

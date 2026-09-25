@@ -513,12 +513,17 @@ import { clearChunkReloadGuard, installChunkReloadGuard } from '@/bootstrap/chun
 import { initDebugBearRum } from '@/bootstrap/debugbear-rum';
 import { installStaleBundleCheck } from '@/bootstrap/stale-bundle-check';
 import { installSwUpdateHandler, readServiceWorkerContainer } from '@/bootstrap/sw-update';
+import { getHomeLocation } from '@/utils/home-location';
 
 // Auto-reload on stale chunk 404s after deployment (Vite fires this for modulepreload failures).
 const chunkReloadStorageKey = installChunkReloadGuard(__BUILD_HASH__);
 
 // Product analytics are secondary startup work; RUM starts once the trusted
 // dashboard entry executes so it can observe page-load vitals.
+// Persist `?home=lat,lon` before the map rewrites the URL with its own state;
+// the satellite-passes panel is lazy and would otherwise never see it.
+getHomeLocation();
+
 const capturedContentAttribution = captureContentAttributionFromUrl();
 if (capturedContentAttribution) {
   // The event is queued safely if the deferred Umami tracker is not ready.

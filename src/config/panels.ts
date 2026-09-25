@@ -120,6 +120,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'defense-patents': { name: 'R&D Signal', enabled: true, priority: 2 },
   'toronto-safety': { name: 'Toronto Safety', enabled: false, priority: 2 },
   'radiation-watch': { name: 'Radiation Watch', enabled: true, priority: 2 },
+  // Opt-in: needs a home location; see utils/home-location.
+  'satellite-passes': { name: 'Satellite Passes', enabled: false, priority: 2 },
   'thermal-escalation': { name: 'Thermal Escalation', enabled: true, priority: 2 },
   'oref-sirens': { name: 'Israel Sirens', enabled: true, priority: 2, ...(_desktop && { premium: 'locked' as const }) },
   'telegram-intel': { name: 'Telegram Intel', enabled: true, priority: 2, ...(_desktop && { premium: 'locked' as const }) },
@@ -1532,7 +1534,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'ucdp-events', 'displacement', 'climate', 'climate-news', 'population-exposure', 'security-advisories', 'toronto-safety', 'radiation-watch', 'oref-sirens', 'world-clock', 'tech-readiness', 'disease-outbreaks', 'fao-food-price-index', 'grocery-basket', 'defense-patents'],
+    panelKeys: ['monitors', 'satellite-fires', 'ucdp-events', 'displacement', 'climate', 'climate-news', 'population-exposure', 'security-advisories', 'toronto-safety', 'radiation-watch', 'satellite-passes', 'oref-sirens', 'world-clock', 'tech-readiness', 'disease-outbreaks', 'fao-food-price-index', 'grocery-basket', 'defense-patents'],
     variants: ['full', 'energy'],
   },
 
