@@ -41,7 +41,6 @@ import type {
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { fetchAircraftPositions } from '@/services/aviation';
-import type { LocalAdsbAircraft, LocalAdsbAvailability } from '@/services/local-adsb';
 import type { SatellitePosition } from '@/services/satellites';
 import { type IranEvent, getIranEventColor, getIranEventRadius } from '@/services/conflict';
 import { getMilitaryBaseColor } from '@/config/military-base-colors';
@@ -605,10 +604,6 @@ export class DeckGLMap {
   private liveTankersAbort: AbortController | null = null;
   private liveTankersTimer: ReturnType<typeof setInterval> | null = null;
   private satellitePositions: SatellitePosition[] = [];
-  private localAdsbAircraft: LocalAdsbAircraft[] = [];
-  private localAdsbAbort: AbortController | null = null;
-  private localAdsbTimer: ReturnType<typeof setInterval> | null = null;
-  private localAdsbAvailabilityLogged: LocalAdsbAvailability | null = null;
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
   private healthByCableId: Record<string, CableHealthRecord> = {};
@@ -1946,19 +1941,6 @@ export class DeckGLMap {
       // relay even when the map is still on screen.
       this.stopLiveTankersLoop();
       this.layerCache.delete('live-tankers-layer');
-    }
-
-    // Local ADS-B: aircraft heard by the operator's own receivers, served by
-    // the sidecar (desktop + docker self-host). Same layer-scoped polling
-    // pattern as liveTankers: the loop only runs while the layer is on.
-    if (mapLayers.localAdsb) {
-      this.ensureLocalAdsbLoop();
-      if (this.localAdsbAircraft.length > 0) {
-        layers.push(this.createLocalAdsbLayer());
-      }
-    } else {
-      this.stopLocalAdsbLoop();
-      this.layerCache.delete('local-adsb-layer');
     }
 
     // Conflict zones layer — heavy GeoJson tessellation routed through the
@@ -3771,76 +3753,6 @@ export class DeckGLMap {
     if (this.state.layers.satellites) this.updateLayers();
   }
 
-  private createLocalAdsbLayer(): IconLayer<LocalAdsbAircraft> {
-    return new IconLayer<LocalAdsbAircraft>({
-      id: 'local-adsb-layer',
-      data: this.localAdsbAircraft,
-      getPosition: (d) => [d.lon, d.lat],
-      getIcon: () => 'plane',
-      iconAtlas: MARKER_ICONS.plane,
-      iconMapping: AIRCRAFT_ICON_MAPPING,
-      getSize: (d) => d.onGround ? 14 : 20,
-      // Magenta keeps own-receiver contacts distinct from the public
-      // aircraft-positions layer (altitude-coloured) when both are on.
-      getColor: (d) => {
-        if (d.onGround) return [150, 110, 150, 170] as [number, number, number, number];
-        return (d.positionAgeS > 15 ? [255, 0, 200, 140] : [255, 0, 200, 235]) as [number, number, number, number];
-      },
-      getAngle: (d) => -(d.trackDeg ?? 0),
-      sizeMinPixels: 10,
-      sizeMaxPixels: 30,
-      sizeScale: 1,
-      pickable: true,
-      billboard: false,
-      updateTriggers: { getColor: [this.localAdsbAircraft] },
-    });
-  }
-
-  /** Idempotent: starts the 5s Local ADS-B refresh loop while the layer is on. */
-  private ensureLocalAdsbLoop(): void {
-    if (this.localAdsbTimer !== null) return;
-    void this.loadLocalAdsb();
-    this.localAdsbTimer = setInterval(() => {
-      void this.loadLocalAdsb();
-    }, 5_000);
-  }
-
-  private stopLocalAdsbLoop(): void {
-    if (this.localAdsbTimer !== null) {
-      clearInterval(this.localAdsbTimer);
-      this.localAdsbTimer = null;
-    }
-    if (this.localAdsbAbort) {
-      this.localAdsbAbort.abort();
-      this.localAdsbAbort = null;
-    }
-    this.localAdsbAircraft = [];
-  }
-
-  private async loadLocalAdsb(): Promise<void> {
-    if (this.localAdsbAbort) {
-      this.localAdsbAbort.abort();
-    }
-    const controller = new AbortController();
-    this.localAdsbAbort = controller;
-    try {
-      const { fetchLocalAdsb } = await import('@/services/local-adsb');
-      const snapshot = await fetchLocalAdsb(controller.signal);
-      if (controller.signal.aborted || this.localAdsbAbort !== controller) return;
-      if (snapshot.availability !== 'ok' && this.localAdsbAvailabilityLogged !== snapshot.availability) {
-        this.localAdsbAvailabilityLogged = snapshot.availability;
-        console.info(snapshot.availability === 'unconfigured'
-          ? '[local-adsb] No receivers configured. Set LOCAL_ADSB_FEEDS for the sidecar (see SELF_HOSTING.md).'
-          : '[local-adsb] Not available on this deployment: the Local ADS-B layer needs the desktop app or the docker self-host stack.');
-      }
-      this.localAdsbAircraft = snapshot.aircraft;
-      this.setLayerReady('localAdsb', snapshot.aircraft.length > 0);
-      this.updateLayers();
-    } catch {
-      // Keep last-known aircraft; the next tick retries.
-    }
-  }
-
   private createGpsJammingLayer(): PolygonLayer<GpsJamHexWithPolygon> {
     return new PolygonLayer<GpsJamHexWithPolygon>({
       id: 'gps-jamming-layer',
@@ -5125,13 +5037,6 @@ export class DeckGLMap {
       case 'satellite-positions-layer': {
         const kind = obj.type === 'sar' ? 'SAR imaging' : obj.type === 'optical' ? 'Optical imaging' : 'Military';
         return { html: `<div class="deckgl-tooltip"><strong>&#128752; ${text(obj.name)}</strong> <span style="opacity:.7">NORAD ${text(obj.noradId)}</span><br/>${text(kind)} · ${text(obj.country)}<br/>${Math.round(obj.alt).toLocaleString()} km · ${obj.velocity.toFixed(2)} km/s · inc ${obj.inclination.toFixed(1)}°</div>` };
-      }
-      case 'local-adsb-layer': {
-        const alt = obj.onGround ? 'ground' : `${obj.altitudeFt?.toLocaleString() ?? '?'} ft`;
-        const speed = obj.groundSpeedKt != null ? ` · ${Math.round(obj.groundSpeedKt)} kts` : '';
-        const track = obj.trackDeg != null ? ` · ${Math.round(obj.trackDeg)}°` : '';
-        const rssi = obj.rssiDbfs != null ? ` · ${obj.rssiDbfs.toFixed(1)} dBFS` : '';
-        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao.toUpperCase())}</strong> <span style="opacity:.7">${text(obj.icao.toUpperCase())}</span><br/>${text(alt)}${speed}${track}<br/><span style="opacity:.7">Own receiver · ${text((obj.bands || []).join(' + '))} MHz${rssi} · ${obj.positionAgeS}s ago</span></div>` };
       }
       case 'aircraft-positions-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao24)}</strong><br/>${obj.altitudeFt?.toLocaleString() ?? 0} ft · ${obj.groundSpeedKts ?? 0} kts · ${Math.round(obj.trackDeg ?? 0)}°</div>` };
@@ -8377,7 +8282,6 @@ export class DeckGLMap {
       this.aircraftFetchTimer = null;
     }
     this.stopLiveTankersLoop();
-    this.stopLocalAdsbLoop();
 
 
     this.layerCache.clear();

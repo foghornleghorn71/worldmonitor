@@ -129,8 +129,6 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   storageFacilities:        def('storageFacilities',        '&#127959;', 'storageFacilities',        'Storage Facilities', ['deck']),
   fuelShortages:            def('fuelShortages',            '&#9881;',   'fuelShortages',            'Fuel Shortages', ['deck']),
   liveTankers:              def('liveTankers',              '&#128674;', 'liveTankers',              'Live Tanker Positions', ['deck']),
-  // Sidecar-only feed (desktop + docker self-host); DeckGL-only paint path.
-  localAdsb:                def('localAdsb',                '&#128225;', 'localAdsb',                'Local ADS-B Receiver', ['deck']),
 };
 
 export const V1_LAYER_EXPLANATION_KEYS = [
@@ -354,7 +352,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'iranAttacks', 'hotspots', 'conflicts',
     'bases', 'nuclear', 'irradiators', 'radiationWatch', 'spaceports',
     'cables', 'pipelines', 'storageFacilities', 'fuelShortages', 'datacenters', 'military',
-    'ais', 'tradeRoutes', 'flights', 'localAdsb', 'protests',
+    'ais', 'tradeRoutes', 'flights', 'protests',
     'ucdpEvents', 'displacement', 'climate', 'weather', 'canadaRoads', 'canadaAlerts',
     'outages', 'cyberThreats', 'natural', 'fires',
     'waterways', 'economic', 'minerals', 'gpsJamming',
@@ -611,10 +609,6 @@ export const LAYER_SYNONYMS: Record<string, Array<keyof MapLayers>> = {
   airplane: ['flights'],
   plane: ['flights'],
   notam: ['flights'],
-  adsb: ['localAdsb', 'flights'],
-  dump1090: ['localAdsb'],
-  receiver: ['localAdsb'],
-  sdr: ['localAdsb'],
   ship: ['ais', 'tradeRoutes'],
   vessel: ['ais'],
   maritime: ['ais', 'waterways', 'tradeRoutes'],

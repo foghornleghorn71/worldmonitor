@@ -56,7 +56,6 @@
       "../api",
       "../shared/llm-health-providers.js",
       "sidecar/local-api-server.mjs",
-      "sidecar/local-adsb.mjs",
       "sidecar/package.json",
       "sidecar/node",
       "../data",
