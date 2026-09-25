@@ -350,6 +350,51 @@ services:
       - "your-host:192.168.1.100"  # if not DNS-resolvable
 ```
 
+### Local ADS-B receivers
+
+The **Local ADS-B Receiver** map layer draws aircraft heard by your own
+receiver: an RTL-SDR stick plus a decoder that writes `aircraft.json`
+(dump1090-fa, readsb, tar1090, or dump978-fa + skyaware978 for 978 MHz UAT).
+The docker sidecar polls the decoder about once a second while the layer is on;
+the browser never learns the decoder address. The hosted web app cannot reach
+your LAN, so the layer only works in the docker stack and the desktop app.
+
+Set `LOCAL_ADSB_FEEDS` in `.env` as comma-separated `band=url` entries:
+
+```bash
+# tar1090 / readsb on a Raspberry Pi in your LAN
+LOCAL_ADSB_FEEDS=1090=http://192.168.1.50/tar1090/data/aircraft.json
+
+# Decoder on the docker host itself, 1090 MHz and 978 MHz UAT
+LOCAL_ADSB_FEEDS=1090=http://host.docker.internal:8080/data/aircraft.json,978=http://host.docker.internal:8978/data/aircraft.json
+```
+
+Rules (an entry that breaks one is logged at startup and never fetched):
+
+- The host must be loopback, a private RFC1918 address, `localhost`, a
+  `*.local` mDNS name, or `host.docker.internal`. Names are resolved on every
+  read and every resolved address must be private too. Public hosts, link-local
+  addresses and IPv6 are refused. mDNS names usually do not resolve inside a
+  container, so prefer the Pi's IP address there. A decoder on the docker
+  host must listen on an interface the container can reach (e.g. `0.0.0.0`
+  or the docker bridge), not only `127.0.0.1`.
+- The scheme is `http` or `https`, with no credentials, query or fragment.
+- The path ends in `aircraft.json`. Redirects are refused and the document is
+  capped at 2 MiB.
+
+Restart the stack after changing the value, then turn on **Local ADS-B
+Receiver** in the Layers panel (or open `/?layers=localAdsb`). Each feed is
+reported as `live`, `stale` (its own `now` is more than 10 s old, usually a
+stopped decoder), `unreachable` or `invalid` at `/api/local-adsb/aircraft`.
+
+No receiver yet? `node scripts/local-adsb-fixture-server.mjs` serves a
+simulated `aircraft.json` on `127.0.0.1:8080` (set `FIXTURE_HOST=0.0.0.0`,
+`FIXTURE_LAT` and `FIXTURE_LON` as needed). `npm run dev` also serves the
+route when `LOCAL_ADSB_FEEDS` is set, so you can develop without docker.
+
+The receiver pipeline is adapted from [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view)
+(MIT License).
+
 ## 🐛 Troubleshooting
 
 | Issue | Fix |

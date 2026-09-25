@@ -882,6 +882,26 @@ function gpsjamDevPlugin(): Plugin {
   };
 }
 
+// Local ADS-B receivers in `npm run dev`. The production path is the sidecar
+// (desktop + docker self-host); this mounts the same handler so the layer can
+// be developed against LOCAL_ADSB_FEEDS without building the docker stack.
+function localAdsbDevPlugin(): Plugin {
+  return {
+    name: 'local-adsb-dev',
+    async configureServer(server) {
+      const { createLocalAdsbHandler, LOCAL_ADSB_ROUTE } = await import('./src-tauri/sidecar/local-adsb.mjs');
+      const handler = createLocalAdsbHandler();
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split('?')[0] !== LOCAL_ADSB_ROUTE) return next();
+        const response = await handler.handle({ method: req.method });
+        res.statusCode = response.status;
+        response.headers.forEach((value, key) => res.setHeader(key, value));
+        res.end(await response.text());
+      });
+    },
+  };
+}
+
 // Mirror the WebMCP security gates during local development. Chrome's
 // #enable-webmcp-testing flag bypasses origin-trial enrollment, but it does not
 // bypass origin isolation or Permissions Policy. Keeping these headers in the
@@ -970,6 +990,7 @@ export default defineConfig(({ mode }) => {
       rssProxyPlugin(),
       youtubeLivePlugin(),
       gpsjamDevPlugin(),
+      localAdsbDevPlugin(),
       sebufApiPlugin(),
       brotliPrecompressPlugin(),
       VitePWA({

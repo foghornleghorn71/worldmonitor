@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createLocalAdsbHandler, LOCAL_ADSB_ROUTE } from './local-adsb.mjs';
 
 const sharedResourceRoot = process.env.LOCAL_API_RESOURCE_DIR
   || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1501,6 +1502,12 @@ async function dispatch(requestUrl, req, routes, context) {
     return json({ error: 'Unauthorized' }, 401);
   }
 
+  // Local ADS-B receivers (dump1090/readsb/tar1090 aircraft.json on the
+  // operator's LAN). Sidecar-only: Vercel Edge functions cannot reach a LAN.
+  if (requestUrl.pathname === LOCAL_ADSB_ROUTE) {
+    return context.localAdsb.handle(req);
+  }
+
   if (requestUrl.pathname === '/api/local-status') {
     return json({
       success: true,
@@ -1832,6 +1839,10 @@ export const __testing__ = {
 
 export async function createLocalApiServer(options = {}) {
   const context = resolveConfig(options);
+  context.localAdsb = createLocalAdsbHandler({
+    logger: context.logger,
+    ...(options.localAdsbFeeds !== undefined ? { feedsValue: options.localAdsbFeeds } : {}),
+  });
   loadVerboseState(context.dataDir);
   const routes = await buildRouteTable(context.apiDir);
   let unregisterSelfFetchOrigins = null;

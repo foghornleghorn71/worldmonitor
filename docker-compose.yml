@@ -49,6 +49,12 @@ services:
       CLOUDFLARE_API_TOKEN: "${CLOUDFLARE_API_TOKEN:-}"
       AVIATIONSTACK_API: "${AVIATIONSTACK_API:-}"
       TRAVELPAYOUTS_API_TOKEN: "${TRAVELPAYOUTS_API_TOKEN:-}"
+      # Own ADS-B receivers on the LAN (see SELF_HOSTING.md "Local ADS-B receivers")
+      LOCAL_ADSB_FEEDS: "${LOCAL_ADSB_FEEDS:-}"
+    # Lets LOCAL_ADSB_FEEDS reach a decoder running on the docker host itself
+    # (e.g. an RTL-SDR stick plugged into the NAS) as host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Docker secrets (recommended for API keys — keeps them out of docker inspect).
     # Create secrets/ dir with one file per key, then uncomment below.
     # See SELF_HOSTING.md or docker-compose.override.yml for details.

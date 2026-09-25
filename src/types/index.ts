@@ -738,6 +738,8 @@ export interface MapLayers {
   /** Live tanker positions (AIS ship type 80-89) inside chokepoint bboxes.
    *  Refreshed every 60s via getVesselSnapshot. Energy Atlas parity-push. */
   liveTankers?: boolean;
+  /** Aircraft heard by the operator's own ADS-B receivers (dump1090/readsb/tar1090) via the sidecar. Desktop + docker self-host only. */
+  localAdsb?: boolean;
 }
 
 export interface AIDataCenter {
